@@ -32,6 +32,10 @@ public final class AnnotationUtils {
     public static void checkInvalidAnnotationCombination(Field field) {
         Annotation[] annotations = field.getAnnotations();
 
+        if (annotations.length <= 1) {
+            return;
+        }
+
         for (int i = 0; i < annotations.length; i++) {
             Class<? extends Annotation> type = annotations[i].annotationType();
 
