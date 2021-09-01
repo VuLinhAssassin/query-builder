@@ -33,7 +33,7 @@ public class QueryBuilder {
      *
      * @param clazz Input entity class.
      * @param <T>   Entity type.
-     * @return A string builder for single count query (for continuous string mutation) generated from provided class.
+     * @return A string builder for single count query (for continuous string mutation) generated of provided class.
      */
     public <T> StringBuilder buildCountQuery(Class<T> clazz) {
         return buildCountQuery(clazz, null);
@@ -45,7 +45,7 @@ public class QueryBuilder {
      * @param clazz Input entity class.
      * @param alias The alias that represents the entity in field selection.
      * @param <T>   Entity type.
-     * @return A string builder for single count query (for continuous string mutation) generated from provided class.
+     * @return A string builder for single count query (for continuous string mutation) generated of provided class.
      */
     public <T> StringBuilder buildCountQuery(Class<T> clazz, String alias) {
         return buildSelectQuery(clazz, alias, true);
@@ -56,7 +56,7 @@ public class QueryBuilder {
      *
      * @param clazz Input entity class.
      * @param <T>   Entity type.
-     * @return A string builder for single select query (for continuous string mutation) generated from provided class.
+     * @return A string builder for single select query (for continuous string mutation) generated of provided class.
      */
     public <T> StringBuilder buildSingleSelectQuery(Class<T> clazz) {
         return buildSingleSelectQuery(clazz, null);
@@ -68,19 +68,19 @@ public class QueryBuilder {
      * @param clazz Input entity class.
      * @param alias The alias that represents the entity in field selection.
      * @param <T>   Entity type.
-     * @return A string builder for single select query (for continuous string mutation) generated from provided class.
+     * @return A string builder for single select query (for continuous string mutation) generated of provided class.
      */
     public <T> StringBuilder buildSingleSelectQuery(Class<T> clazz, String alias) {
         return buildSelectQuery(clazz, alias, false);
     }
 
     /**
-     * Create 'search' query from a given object.
+     * Create 'search' query of a given object.
      *
      * @param object    Input object.
      * @param presetHql Pre-built query to concatenate with result.
      * @param <T>       Object type.
-     * @return A string builder for 'search' query (for continuous String mutation) generated from provided object.
+     * @return A string builder for 'search' query (for continuous String mutation) generated of provided object.
      */
     public <T> StringBuilder buildQuery(T object, String presetHql) {
         StringBuilder query = new StringBuilder();
@@ -138,7 +138,7 @@ public class QueryBuilder {
             query.append(CLOSE_PARENTHESIS);
         }
 
-        return query.append(" from ")
+        return query.append(" of ")
                     .append(classNameWithoutPackage)
                     .append(SPACE)
                     .append(actualAlias)
