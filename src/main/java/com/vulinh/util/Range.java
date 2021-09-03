@@ -1,17 +1,19 @@
 package com.vulinh.util;
 
+import static java.util.Objects.isNull;
 import static java.util.Objects.nonNull;
 
 import java.util.Comparator;
 import java.util.Objects;
 
 /**
- * A rudimentary implementation of famous Range API from Apache Common library (in case said library was not allowed on some very old project).
+ * A rudimentary implementation of famous Range API from Apache Common library (in case said library was not allowed on some very old projects).
  *
- * @param <E> object type.
+ * @param <E> Object type.
  * @author Nguyen Vu Linh
  */
-public class Range<E extends Comparable<? super E>> {
+@SuppressWarnings("unchecked")
+public class Range<E> {
 
     /**
      * Check if the input value is between two bounds.
@@ -27,9 +29,11 @@ public class Range<E extends Comparable<? super E>> {
                 : comparator.compare(value, fromValue) > 0 && comparator.compare(value, toValue) < 0;
         }
 
+        Comparable<E> comparableValue = (Comparable<E>) value;
+
         return isInclusive
-            ? value.compareTo(fromValue) >= 0 && value.compareTo(toValue) <= 0
-            : value.compareTo(fromValue) > 0 && value.compareTo(toValue) < 0;
+            ? comparableValue.compareTo(fromValue) >= 0 && comparableValue.compareTo(toValue) <= 0
+            : comparableValue.compareTo(fromValue) > 0 && comparableValue.compareTo(toValue) < 0;
     }
 
     /**
@@ -53,7 +57,7 @@ public class Range<E extends Comparable<? super E>> {
      * @return An immutable Range object with two bounds (that has been checked to make sure that lower bound and upper bound are where they are supposed to
      * be), and without inclusivity.
      */
-    public static <E extends Comparable<? super E>> Range<E> of(E fromValue, E toValue) {
+    public static <E> Range<E> of(E fromValue, E toValue) {
         return of(fromValue, toValue, null, false);
     }
 
@@ -68,7 +72,7 @@ public class Range<E extends Comparable<? super E>> {
      * @return An immutable Range object with two bounds (that has been checked to make sure that lower bound and upper bound are where they are supposed to
      * be). The inclusivity can be set with this method.
      */
-    public static <E extends Comparable<? super E>> Range<E> of(E fromValue, E toValue, boolean isInclusive) {
+    public static <E> Range<E> of(E fromValue, E toValue, boolean isInclusive) {
         return of(fromValue, toValue, null, isInclusive);
     }
 
@@ -83,7 +87,7 @@ public class Range<E extends Comparable<? super E>> {
      * @return An immutable Range object with two bounds (that has been checked to make sure that lower bound and upper bound are where they are supposed to
      * be), and with preset inclusivity.
      */
-    public static <E extends Comparable<? super E>> Range<E> of(E fromValue, E toValue, Comparator<E> comparator) {
+    public static <E> Range<E> of(E fromValue, E toValue, Comparator<E> comparator) {
         return of(fromValue, toValue, comparator, false);
     }
 
@@ -99,7 +103,7 @@ public class Range<E extends Comparable<? super E>> {
      * @return An immutable Range object with two bounds (that has been checked to make sure that lower bound and upper bound are where they are supposed to
      * be), and with preset inclusivity and custom comparator.
      */
-    public static <E extends Comparable<? super E>> Range<E> of(E fromValue, E toValue, Comparator<E> comparator, boolean isInclusive) {
+    public static <E> Range<E> of(E fromValue, E toValue, Comparator<E> comparator, boolean isInclusive) {
         return new Range<>(fromValue, toValue, comparator, isInclusive);
     }
 
@@ -154,16 +158,38 @@ public class Range<E extends Comparable<? super E>> {
         return new Range<>(fromValue, toValue, comparator, isInclusive);
     }
 
-    private Range(E fromValue, E toValue, Comparator<? super E> comparator, boolean isInclusive) {
+    private Range(E fromValue, E toValue, Comparator<E> comparator, boolean isInclusive) {
+        if (isNull(fromValue)) {
+            throw new IllegalArgumentException("fromValue cannot be null!");
+        }
+
+        if (isNull(toValue)) {
+            throw new IllegalArgumentException("toValue cannot be null!");
+        }
+
         this.comparator = comparator;
         this.isInclusive = isInclusive;
 
-        if ((nonNull(comparator) && comparator.compare(fromValue, toValue) > 0) || (fromValue.compareTo(toValue) > 0)) {
-            this.fromValue = toValue;
-            this.toValue = fromValue;
+        if (nonNull(comparator)) {
+            if (comparator.compare(fromValue, toValue) > 0) {
+                this.fromValue = toValue;
+                this.toValue = fromValue;
+            } else {
+                this.fromValue = fromValue;
+                this.toValue = toValue;
+            }
+        } else if (fromValue instanceof Comparable && toValue instanceof Comparable) {
+            Comparable<E> comparableFromValue = (Comparable<E>) fromValue;
+
+            if (comparableFromValue.compareTo(toValue) > 0) {
+                this.fromValue = toValue;
+                this.toValue = fromValue;
+            } else {
+                this.fromValue = fromValue;
+                this.toValue = toValue;
+            }
         } else {
-            this.fromValue = fromValue;
-            this.toValue = toValue;
+            throw new IllegalArgumentException("Both fromValue and toValue must implement Comparable if no Comparator is supplied!");
         }
     }
 
@@ -197,8 +223,8 @@ public class Range<E extends Comparable<? super E>> {
         return Objects.hash(fromValue, toValue, comparator, isInclusive);
     }
 
-    private final E                     fromValue;
-    private final E                     toValue;
-    private final Comparator<? super E> comparator;
-    private final boolean               isInclusive;
+    private final E             fromValue;
+    private final E             toValue;
+    private final Comparator<E> comparator;
+    private final boolean       isInclusive;
 }
