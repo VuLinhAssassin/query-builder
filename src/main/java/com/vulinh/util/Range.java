@@ -4,7 +4,6 @@ import static java.util.Objects.isNull;
 import static java.util.Objects.nonNull;
 
 import java.util.Comparator;
-import java.util.Objects;
 
 /**
  * A rudimentary implementation of famous Range API from Apache Common library (in case said library was not allowed on some very old projects).
@@ -19,7 +18,7 @@ public class Range<E> {
      * Check if the input value is between two bounds.
      *
      * @param value The input value.
-     * @return <code>true</code> if value is between two bounds of this range (inclusive or not depending on how the Range object is initialized);
+     * @return <code>true</code> if value is between two bounds of this range (inclusive or not will depend on how the Range object is initialized);
      * <code>false</code> if otherwise.
      */
     public boolean isBetween(E value) {
@@ -40,7 +39,7 @@ public class Range<E> {
      * Check if the input value is outside two bounds.
      *
      * @param value The input value.
-     * @return <code>true</code> if value is outside two bounds of this range (inclusive or not depending on how the Range object is initialized);
+     * @return <code>true</code> if value is outside two bounds of this range (inclusive or not will depend on how the Range object is initialized);
      * <code>false</code> if otherwise.
      */
     public boolean isOutside(E value) {
@@ -201,26 +200,6 @@ public class Range<E> {
             ", comparator=" + comparator +
             ", isInclusive=" + isInclusive +
             '}';
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-
-        if (!(o instanceof Range)) {
-            return false;
-        }
-
-        Range<?> range = (Range<?>) o;
-        return isInclusive == range.isInclusive && Objects.equals(fromValue, range.fromValue) && Objects.equals(toValue, range.toValue)
-            && Objects.equals(comparator, range.comparator);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(fromValue, toValue, comparator, isInclusive);
     }
 
     private final E             fromValue;
