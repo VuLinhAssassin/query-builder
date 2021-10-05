@@ -1,25 +1,29 @@
 package com.vulinh;
 
-import static com.vulinh.data.ComparisonType.*;
-import static com.vulinh.util.AnnotationUtils.checkInvalidAnnotationCombination;
-import static com.vulinh.util.RetrospectionUtils.isValuePresent;
-import static com.vulinh.util.StringUtils.CLOSE_PARENTHESIS;
-import static com.vulinh.util.StringUtils.COLON;
-import static com.vulinh.util.StringUtils.DOT;
-import static com.vulinh.util.StringUtils.OPEN_PARENTHESIS;
-import static com.vulinh.util.StringUtils.SPACE;
-import static com.vulinh.util.StringUtils.SPACED_AND;
-import static com.vulinh.util.StringUtils.SPACED_OR;
-import static com.vulinh.util.StringUtils.isNotBlank;
-import static java.lang.reflect.Modifier.isStatic;
-
 import com.vulinh.annotation.IgnoreField;
 import com.vulinh.annotation.UseCustomName;
 import com.vulinh.annotation.UseTableAlias;
 import com.vulinh.annotation.UseWrapMethod;
 import com.vulinh.annotation.comparison.*;
+import com.vulinh.data.BuilderException;
 import com.vulinh.data.ComparisonType;
+import com.vulinh.data.InvalidAnnotationCombinationException;
+
+import java.beans.PropertyDescriptor;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
+import java.util.HashSet;
+import java.util.Objects;
+import java.util.Set;
+
+import static com.vulinh.AnnotationUtils.checkInvalidAnnotationCombination;
+import static com.vulinh.RetrospectionUtils.isValuePresent;
+import static com.vulinh.data.ComparisonType.*;
+import static com.vulinh.util.StringUtils.*;
+import static java.lang.String.format;
+import static java.lang.reflect.Modifier.isStatic;
+import static java.util.Objects.isNull;
+import static java.util.Objects.nonNull;
 
 /**
  * Main class for this library.
@@ -338,6 +342,155 @@ public class QueryBuilder {
     private static void checkEmptyAndStartSpace(StringBuilder query, String presetQuery) {
         if (isNotBlank(presetQuery)) {
             query.append(presetQuery);
+        }
+    }
+}
+
+/**
+ * Utility class for doing some inspection on the annotations used by this library.
+ *
+ * @author Nguyen Vu Linh
+ */
+final class AnnotationUtils {
+
+    private AnnotationUtils() {
+        throw new UnsupportedOperationException("Cannot instantiate utility class!");
+    }
+
+    /**
+     * Check if a field is annotated by various annotations that form 'invalid' combination. For example, <code>@IsNotNull</code> cannot be paired with
+     * <code>@IsNull</code>, because it will not make sense to have a field that has both 'is not null' and 'is null' at the same time. If such combinations
+     * are found, a <code>InvalidAnnotationCombinationException</code> will be thrown.
+     *
+     * @param field The field to check.
+     * @throws InvalidAnnotationCombinationException when an invalid combination of annotation is found.
+     */
+    public static void checkInvalidAnnotationCombination(Field field) {
+        Annotation[] annotations = field.getAnnotations();
+
+        if (annotations.length <= 1) {
+            return;
+        }
+
+        for (int i = 0; i < annotations.length; i++) {
+            Class<? extends Annotation> type = annotations[i].annotationType();
+
+            for (int j = i + 1; j < annotations.length; j++) {
+                Class<? extends Annotation> innerType = annotations[j].annotationType();
+
+                if (INVALID_COMBINATIONS.contains(new Combination(type, innerType))) {
+                    throw new InvalidAnnotationCombinationException(
+                            field, type, innerType
+                    );
+                }
+            }
+        }
+    }
+
+    private static final Set<Combination> INVALID_COMBINATIONS;
+
+    static {
+        INVALID_COMBINATIONS = new HashSet<>();
+
+        Class<?>[] comparisonAnnotations = new Class<?>[]{
+                Between.class,
+                GreaterThan.class,
+                GreaterThanOrEqualTo.class,
+                LessThan.class,
+                LessThanOrEqualTo.class,
+                IsNull.class,
+                IsNotNull.class,
+                NotEqual.class,
+                Like.class,
+                InRange.class,
+                OutRange.class
+        };
+
+        for (Class<?> clazz : comparisonAnnotations) {
+            for (Class<?> innerClazz : comparisonAnnotations) {
+                // Same annotation cannot be used multiple times on a single field, as such, it doesn't matter
+                if (!clazz.equals(innerClazz)) {
+                    addSet(clazz, innerClazz);
+                }
+            }
+        }
+    }
+
+    private static void addSet(Class<?> annotation1, Class<?> annotation2) {
+        INVALID_COMBINATIONS.add(new Combination(annotation1, annotation2));
+    }
+
+    /**
+     * Inner class Combination, consists of a pair of 'comparison' annotations. As private inner class, nothing outside this class can access it.
+     */
+    private static class Combination {
+
+        private final Class<?> annotation1;
+        private final Class<?> annotation2;
+
+        Combination(Class<?> annotation1, Class<?> annotation2) {
+            this.annotation1 = annotation1;
+            this.annotation2 = annotation2;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+
+            if (isNull(other) || getClass() != other.getClass()) {
+                return false;
+            }
+
+            Combination that = (Combination) other;
+            return Objects.equals(annotation1, that.annotation1) && Objects.equals(annotation2, that.annotation2);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(annotation1, annotation2);
+        }
+
+        @Override
+        public String toString() {
+            return "Combination{" +
+                    "annotation1=" + annotation1 +
+                    ", annotation2=" + annotation2 +
+                    '}';
+        }
+    }
+}
+
+/**
+ * Utility class for doing some retrospection by this library.
+ *
+ * @author Nguyen Vu Linh
+ */
+final class RetrospectionUtils {
+
+    private RetrospectionUtils() {
+        throw new UnsupportedOperationException("Cannot instantiate utility class!");
+    }
+
+    /**
+     * Invoke field's getter method to see if field contains value. Will throw exception if the provided object is not a valid Java object, or getter method is
+     * missing.
+     *
+     * @param field  The field to test.
+     * @param object The object that contains said field.
+     * @param <T>    Object type.
+     * @return <code>true</code> if said field has non-null value; <code>false</code> if otherwise.
+     * @throws BuilderException when the provided object cannot be retrospected to invoke getter method.
+     */
+    public static <T> boolean isValuePresent(Field field, T object) {
+        try {
+            PropertyDescriptor descriptor = new PropertyDescriptor(field.getName(), object.getClass());
+            return nonNull(descriptor.getReadMethod().invoke(object));
+        } catch (Exception ex) {
+            throw new BuilderException(
+                    format("Either class %s is not a valid bean or getter method not present for field %s", object.getClass(), field), ex
+            );
         }
     }
 }
