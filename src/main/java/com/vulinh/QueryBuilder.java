@@ -142,7 +142,7 @@ public class QueryBuilder {
             query.append(CLOSE_PARENTHESIS);
         }
 
-        return query.append(" of ")
+        return query.append(" from ")
                     .append(classNameWithoutPackage)
                     .append(SPACE)
                     .append(actualAlias)
