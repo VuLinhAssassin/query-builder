@@ -4,9 +4,20 @@ import com.vulinh.annotation.IgnoreField;
 import com.vulinh.annotation.UseCustomName;
 import com.vulinh.annotation.UseTableAlias;
 import com.vulinh.annotation.UseWrapMethod;
-import com.vulinh.annotation.comparison.*;
+import com.vulinh.annotation.UseWrapMethodValue;
+import com.vulinh.annotation.comparison.Between;
+import com.vulinh.annotation.comparison.GreaterThan;
+import com.vulinh.annotation.comparison.GreaterThanOrEqualTo;
+import com.vulinh.annotation.comparison.InRange;
+import com.vulinh.annotation.comparison.IsNotNull;
+import com.vulinh.annotation.comparison.IsNull;
+import com.vulinh.annotation.comparison.LessThan;
+import com.vulinh.annotation.comparison.LessThanOrEqualTo;
+import com.vulinh.annotation.comparison.Like;
+import com.vulinh.annotation.comparison.NotEqual;
+import com.vulinh.annotation.comparison.NotLike;
+import com.vulinh.annotation.comparison.OutRange;
 import com.vulinh.data.BuilderException;
-import com.vulinh.data.ComparisonType;
 import com.vulinh.data.InvalidAnnotationCombinationException;
 
 import java.beans.PropertyDescriptor;
@@ -17,9 +28,28 @@ import java.util.Objects;
 import java.util.Set;
 
 import static com.vulinh.AnnotationUtils.checkInvalidAnnotationCombination;
+import static com.vulinh.ComparisonSign.EQUAL_TO;
+import static com.vulinh.ComparisonSign.GREATER_THAN;
+import static com.vulinh.ComparisonSign.GREATER_THAN_OR_EQUAL_TO;
+import static com.vulinh.ComparisonSign.IS_NOT_NULL;
+import static com.vulinh.ComparisonSign.IS_NULL;
+import static com.vulinh.ComparisonSign.LESS_THAN;
+import static com.vulinh.ComparisonSign.LESS_THAN_OR_EQUAL_TO;
+import static com.vulinh.ComparisonSign.LIKE;
+import static com.vulinh.ComparisonSign.NOT_EQUAL;
+import static com.vulinh.ComparisonSign.NOT_LIKE;
+import static com.vulinh.RangeComparisonType.BETWEEN_RANGE;
+import static com.vulinh.RangeComparisonType.IN_RANGE;
+import static com.vulinh.RangeComparisonType.OUT_RANGE;
 import static com.vulinh.RetrospectionUtils.isValuePresent;
-import static com.vulinh.data.ComparisonType.*;
-import static com.vulinh.util.StringUtils.*;
+import static com.vulinh.util.StringUtils.CLOSE_PARENTHESIS;
+import static com.vulinh.util.StringUtils.COLON;
+import static com.vulinh.util.StringUtils.DOT;
+import static com.vulinh.util.StringUtils.OPEN_PARENTHESIS;
+import static com.vulinh.util.StringUtils.SPACE;
+import static com.vulinh.util.StringUtils.SPACED_AND;
+import static com.vulinh.util.StringUtils.SPACED_OR;
+import static com.vulinh.util.StringUtils.isNotBlank;
 import static java.lang.String.format;
 import static java.lang.reflect.Modifier.isStatic;
 import static java.util.Objects.isNull;
@@ -194,49 +224,51 @@ public class QueryBuilder {
     }
 
     private static void processBinaryComparison(StringBuilder query, Field field) {
+        UseWrapMethodValue useWrapMethodValue = field.getAnnotation(UseWrapMethodValue.class);
+
         if (field.isAnnotationPresent(GreaterThan.class)) {
-            fillBinaryOperator(query, field, GREATER_THAN);
+            fillBinaryOperator(query, field, GREATER_THAN, useWrapMethodValue);
 
             return;
         }
 
         if (field.isAnnotationPresent(GreaterThanOrEqualTo.class)) {
-            fillBinaryOperator(query, field, GREATER_THAN_OR_EQUAL_TO);
+            fillBinaryOperator(query, field, GREATER_THAN_OR_EQUAL_TO, useWrapMethodValue);
 
             return;
         }
 
         if (field.isAnnotationPresent(LessThan.class)) {
-            fillBinaryOperator(query, field, LESS_THAN);
+            fillBinaryOperator(query, field, LESS_THAN, useWrapMethodValue);
 
             return;
         }
 
         if (field.isAnnotationPresent(LessThanOrEqualTo.class)) {
-            fillBinaryOperator(query, field, LESS_THAN_OR_EQUAL_TO);
+            fillBinaryOperator(query, field, LESS_THAN_OR_EQUAL_TO, useWrapMethodValue);
 
             return;
         }
 
         if (field.isAnnotationPresent(NotEqual.class)) {
-            fillBinaryOperator(query, field, NOT_EQUAL);
+            fillBinaryOperator(query, field, NOT_EQUAL, useWrapMethodValue);
 
             return;
         }
 
         if (field.isAnnotationPresent(Like.class)) {
-            fillBinaryOperator(query, field, LIKE);
+            fillBinaryOperator(query, field, LIKE, useWrapMethodValue);
 
             return;
         }
 
         if (field.isAnnotationPresent(NotLike.class)) {
-            fillBinaryOperator(query, field, NOT_LIKE);
+            fillBinaryOperator(query, field, NOT_LIKE, useWrapMethodValue);
 
             return;
         }
 
-        fillBinaryOperator(query, field, EQUAL_TO);
+        fillBinaryOperator(query, field, EQUAL_TO, useWrapMethodValue);
     }
 
     private static boolean isNullComparison(StringBuilder query, Field field) {
@@ -258,15 +290,15 @@ public class QueryBuilder {
 
     private static boolean isRangeComparison(StringBuilder query, Field field, String fieldName) {
         if (field.isAnnotationPresent(Between.class)) {
-            Between betweenAnnotation = field.getAnnotation(Between.class);
+            StringBuilder actualFromInclusive = renderWrapMethodForRangeComparisonValue(field, BETWEEN_RANGE, true);
+            StringBuilder actualToInclusive = renderWrapMethodForRangeComparisonValue(field, BETWEEN_RANGE, false);
+
             query.append(SPACE)
-                 .append(BETWEEN.sign())
+                 .append(ComparisonSign.BETWEEN.sign())
                  .append(SPACE)
-                 .append(COLON)
-                 .append(betweenAnnotation.fromInclusive())
+                 .append(actualFromInclusive)
                  .append(SPACED_AND)
-                 .append(COLON)
-                 .append(betweenAnnotation.toInclusive());
+                 .append(actualToInclusive);
 
             return true;
         }
@@ -274,18 +306,19 @@ public class QueryBuilder {
         if (field.isAnnotationPresent(InRange.class)) {
             InRange inRangeAnnotation = field.getAnnotation(InRange.class);
 
+            StringBuilder actualFromInclusive = renderWrapMethodForRangeComparisonValue(field, IN_RANGE, true);
+            StringBuilder actualToInclusive = renderWrapMethodForRangeComparisonValue(field, IN_RANGE, false);
+
             query.append(SPACE)
                  .append(inRangeAnnotation.inclusivity() ? GREATER_THAN_OR_EQUAL_TO.sign() : GREATER_THAN.sign())
                  .append(SPACE)
-                 .append(COLON)
-                 .append(inRangeAnnotation.fromField())
+                 .append(actualFromInclusive)
                  .append(SPACED_AND)
                  .append(getActualFieldNameForRangeComparison(field, fieldName))
                  .append(SPACE)
                  .append(inRangeAnnotation.inclusivity() ? LESS_THAN_OR_EQUAL_TO.sign() : LESS_THAN.sign())
                  .append(SPACE)
-                 .append(COLON)
-                 .append(inRangeAnnotation.toField());
+                 .append(actualToInclusive);
 
             return true;
         }
@@ -293,18 +326,19 @@ public class QueryBuilder {
         if (field.isAnnotationPresent(OutRange.class)) {
             OutRange inRangeAnnotation = field.getAnnotation(OutRange.class);
 
+            StringBuilder actualFromInclusive = renderWrapMethodForRangeComparisonValue(field, OUT_RANGE, true);
+            StringBuilder actualToInclusive = renderWrapMethodForRangeComparisonValue(field, OUT_RANGE, false);
+
             query.append(SPACE)
                  .append(inRangeAnnotation.inclusivity() ? LESS_THAN_OR_EQUAL_TO.sign() : LESS_THAN.sign())
                  .append(SPACE)
-                 .append(COLON)
-                 .append(inRangeAnnotation.fromField())
+                 .append(actualFromInclusive)
                  .append(SPACED_OR)
                  .append(getActualFieldNameForRangeComparison(field, fieldName))
                  .append(SPACE)
                  .append(inRangeAnnotation.inclusivity() ? GREATER_THAN_OR_EQUAL_TO.sign() : GREATER_THAN.sign())
                  .append(SPACE)
-                 .append(COLON)
-                 .append(inRangeAnnotation.toField());
+                 .append(actualToInclusive);
 
             return true;
         }
@@ -331,12 +365,88 @@ public class QueryBuilder {
         return fieldNameBuilder;
     }
 
-    private static void fillBinaryOperator(StringBuilder query, Field field, ComparisonType comparisonType) {
+    private static void fillBinaryOperator(StringBuilder query, Field field, ComparisonSign comparisonType, UseWrapMethodValue wrapMethodValue) {
+        StringBuilder actualValueFieldName = renderWrapMethodForBinaryComparisonValue(field, wrapMethodValue);
+
         query.append(SPACE)
              .append(comparisonType.sign())
              .append(SPACE)
-             .append(COLON)
-             .append(field.getName());
+             .append(actualValueFieldName);
+    }
+
+    private static StringBuilder renderWrapMethodForBinaryComparisonValue(Field field, UseWrapMethodValue wrapMethodValue) {
+        StringBuilder actualValueFieldName = new StringBuilder();
+
+        if (nonNull(wrapMethodValue)) {
+            actualValueFieldName.append(wrapMethodValue.value())
+                                .append(OPEN_PARENTHESIS)
+                                .append(COLON);
+        }
+
+        actualValueFieldName.append(field.getName());
+
+        if (nonNull(wrapMethodValue)) {
+            String after = wrapMethodValue.after();
+            if (isNotBlank(after)) {
+                actualValueFieldName.append(SPACE)
+                                    .append(after);
+            }
+
+            actualValueFieldName.append(CLOSE_PARENTHESIS);
+        }
+        return actualValueFieldName;
+    }
+
+    private static StringBuilder renderWrapMethodForRangeComparisonValue(Field field, RangeComparisonType rangeComparisonType, boolean isFromInclusivePart) {
+        StringBuilder actualValuePart = new StringBuilder();
+
+        boolean isWrapMethodValueMarked = false;
+
+        if (field.isAnnotationPresent(UseWrapMethodValue.class)) {
+            isWrapMethodValueMarked = true;
+
+            UseWrapMethodValue useWrapMethodValue = field.getAnnotation(UseWrapMethodValue.class);
+
+            actualValuePart.append(useWrapMethodValue.value())
+                           .append(OPEN_PARENTHESIS);
+        }
+
+        actualValuePart.append(COLON)
+                       .append(parseValuePart(field, rangeComparisonType, isFromInclusivePart));
+
+        if (isWrapMethodValueMarked) {
+            UseWrapMethodValue useWrapMethodValue = field.getAnnotation(UseWrapMethodValue.class);
+
+            String after = useWrapMethodValue.after();
+
+            if (isNotBlank(after)) {
+                actualValuePart.append(SPACE)
+                               .append(after);
+            }
+
+            actualValuePart.append(CLOSE_PARENTHESIS);
+        }
+
+        return actualValuePart;
+    }
+
+    private static String parseValuePart(Field field, RangeComparisonType rangeComparisonType, boolean isFromInclusivePart) {
+        switch (rangeComparisonType) {
+            case BETWEEN_RANGE: {
+                Between annotation = field.getAnnotation(Between.class);
+                return isFromInclusivePart ? annotation.fromInclusive() : annotation.toInclusive();
+            }
+
+            case IN_RANGE: {
+                InRange annotation = field.getAnnotation(InRange.class);
+                return isFromInclusivePart ? annotation.fromField() : annotation.toField();
+            }
+
+            default: {
+                OutRange annotation = field.getAnnotation(OutRange.class);
+                return isFromInclusivePart ? annotation.fromField() : annotation.toField();
+            }
+        }
     }
 
     private static void checkEmptyAndStartSpace(StringBuilder query, String presetQuery) {
@@ -493,4 +603,47 @@ final class RetrospectionUtils {
             );
         }
     }
+}
+
+/**
+ * Some common comparison types.
+ *
+ * @author Nguyen Vu Linh
+ */
+enum ComparisonSign {
+    GREATER_THAN(">"),
+    GREATER_THAN_OR_EQUAL_TO(">="),
+    LESS_THAN("<"),
+    LESS_THAN_OR_EQUAL_TO("<="),
+    NOT_EQUAL("!="),
+    EQUAL_TO("="),
+    IS_NULL("is null"),
+    IS_NOT_NULL("is not null"),
+    BETWEEN("between"),
+    LIKE("like"),
+    NOT_LIKE("not like");
+
+    private final String sign;
+
+    ComparisonSign(String sign) {
+        this.sign = sign;
+    }
+
+    /**
+     * Return the 'sign' used for the comparison in question.
+     *
+     * @return Sign used for the comparison in question.
+     */
+    public String sign() {
+        return sign;
+    }
+}
+
+/**
+ * Describe range comparison type.
+ *
+ * @author Nguyen Vu Linh
+ */
+enum RangeComparisonType {
+    IN_RANGE, OUT_RANGE, BETWEEN_RANGE
 }
