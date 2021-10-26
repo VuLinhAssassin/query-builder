@@ -379,11 +379,11 @@ public class QueryBuilder {
 
         if (nonNull(wrapMethodValue)) {
             actualValueFieldName.append(wrapMethodValue.value())
-                                .append(OPEN_PARENTHESIS)
-                                .append(COLON);
+                                .append(OPEN_PARENTHESIS);
         }
 
-        actualValueFieldName.append(field.getName());
+        actualValueFieldName.append(COLON)
+                            .append(field.getName());
 
         if (nonNull(wrapMethodValue)) {
             String after = wrapMethodValue.after();
