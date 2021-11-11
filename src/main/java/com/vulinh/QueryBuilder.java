@@ -23,7 +23,9 @@ import com.vulinh.data.InvalidAnnotationCombinationException;
 import java.beans.PropertyDescriptor;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
@@ -44,6 +46,7 @@ import static com.vulinh.RangeComparisonType.OUT_RANGE;
 import static com.vulinh.RetrospectionUtils.isValuePresent;
 import static com.vulinh.util.StringUtils.CLOSE_PARENTHESIS;
 import static com.vulinh.util.StringUtils.COLON;
+import static com.vulinh.util.StringUtils.COMMA;
 import static com.vulinh.util.StringUtils.DOT;
 import static com.vulinh.util.StringUtils.OPEN_PARENTHESIS;
 import static com.vulinh.util.StringUtils.SPACE;
@@ -121,11 +124,7 @@ public class QueryBuilder {
 
         checkEmptyAndStartSpace(query, presetHql);
 
-        for (Field field : object.getClass().getDeclaredFields()) {
-            if (isIgnorableField(object, field)) {
-                continue;
-            }
-
+        for (Field field : AnnotationUtils.getNonIgnorableAndNonNullFields(object)) {
             // Check single comparison annotation
             checkInvalidAnnotationCombination(field);
 
@@ -140,6 +139,40 @@ public class QueryBuilder {
             realizeComparisonType(query, field);
 
             query.append(CLOSE_PARENTHESIS);
+        }
+
+        return query;
+    }
+
+    /**
+     * Create select query that consists of many related entities, useful for query that retrieves data from more than one entities.
+     *
+     * @param clazz    the provided DTO class.
+     * @param trailing the follow-up CharSequence (can be anything related to String) after the select query, separated by a SPACE (" ") character.
+     * @param <T>      the DTO type.
+     * @return A string builder for DTO 'search' query (for continuous String mutation) generated of provided object.
+     */
+    public <T> StringBuilder buildMultiEntitiesSelectQuery(Class<T> clazz, CharSequence trailing) {
+        StringBuilder query = new StringBuilder();
+
+        query.append("select new ").append(clazz.getCanonicalName());
+
+        query.append(OPEN_PARENTHESIS);
+
+        List<Field> acceptedFields = AnnotationUtils.getNonIgnorableFields(clazz);
+
+        for (Field field : acceptedFields) {
+            query.append(getActualFieldName(field))
+                 .append(COMMA)
+                 .append(SPACE);
+        }
+
+        // End index is exclusive it seems
+        query.delete(query.length() - 2, query.length())
+             .append(CLOSE_PARENTHESIS);
+
+        if (isNotBlank(trailing)) {
+            query.append(SPACE).append(trailing);
         }
 
         return query;
@@ -179,14 +212,7 @@ public class QueryBuilder {
                     .append(" where 1 = 1"); // for later parts of query condition
     }
 
-    private static <T> boolean isIgnorableField(T object, Field field) {
-        // Check if a field is marked as @IgnoreField or value not present (null); static field will also be ignored
-        return isStatic(field.getModifiers()) || field.isAnnotationPresent(IgnoreField.class) || !isValuePresent(field, object);
-    }
-
     private static void realizeFieldManipulation(StringBuilder query, Field field) {
-        String fieldName = field.getName();
-
         // Opening method wrap
         if (field.isAnnotationPresent(UseWrapMethod.class)) {
             query.append(field.getAnnotation(UseWrapMethod.class).value())
@@ -194,7 +220,7 @@ public class QueryBuilder {
         }
 
         // Table alias
-        actuallyBuildFieldName(field, fieldName, query);
+        query.append(getActualFieldName(field));
 
         // Closing method wrap
         if (field.isAnnotationPresent(UseWrapMethod.class)) {
@@ -210,13 +236,11 @@ public class QueryBuilder {
     }
 
     private static void realizeComparisonType(StringBuilder query, Field field) {
-        String fieldName = field.getName();
-
         if (isNullComparison(query, field)) {
             return;
         }
 
-        if (isRangeComparison(query, field, fieldName)) {
+        if (isRangeComparison(query, field)) {
             return;
         }
 
@@ -288,7 +312,7 @@ public class QueryBuilder {
         return false;
     }
 
-    private static boolean isRangeComparison(StringBuilder query, Field field, String fieldName) {
+    private static boolean isRangeComparison(StringBuilder query, Field field) {
         if (field.isAnnotationPresent(Between.class)) {
             StringBuilder actualFromInclusive = renderWrapMethodForRangeComparisonValue(field, BETWEEN_RANGE, true);
             StringBuilder actualToInclusive = renderWrapMethodForRangeComparisonValue(field, BETWEEN_RANGE, false);
@@ -314,7 +338,7 @@ public class QueryBuilder {
                  .append(SPACE)
                  .append(actualFromInclusive)
                  .append(SPACED_AND)
-                 .append(getActualFieldNameForRangeComparison(field, fieldName))
+                 .append(getActualFieldName(field))
                  .append(SPACE)
                  .append(inRangeAnnotation.inclusivity() ? LESS_THAN_OR_EQUAL_TO.sign() : LESS_THAN.sign())
                  .append(SPACE)
@@ -334,7 +358,7 @@ public class QueryBuilder {
                  .append(SPACE)
                  .append(actualFromInclusive)
                  .append(SPACED_OR)
-                 .append(getActualFieldNameForRangeComparison(field, fieldName))
+                 .append(getActualFieldName(field))
                  .append(SPACE)
                  .append(inRangeAnnotation.inclusivity() ? GREATER_THAN_OR_EQUAL_TO.sign() : GREATER_THAN.sign())
                  .append(SPACE)
@@ -346,11 +370,9 @@ public class QueryBuilder {
         return false;
     }
 
-    private static String getActualFieldNameForRangeComparison(Field field, String fieldName) {
-        return actuallyBuildFieldName(field, fieldName, new StringBuilder()).toString();
-    }
+    private static StringBuilder getActualFieldName(Field field) {
+        StringBuilder fieldNameBuilder = new StringBuilder();
 
-    private static StringBuilder actuallyBuildFieldName(Field field, String fieldName, StringBuilder fieldNameBuilder) {
         if (field.isAnnotationPresent(UseTableAlias.class)) {
             fieldNameBuilder.append(field.getAnnotation(UseTableAlias.class).value())
                             .append(DOT);
@@ -359,7 +381,7 @@ public class QueryBuilder {
         if (field.isAnnotationPresent(UseCustomName.class)) {
             fieldNameBuilder.append(field.getAnnotation(UseCustomName.class).value());
         } else {
-            fieldNameBuilder.append(fieldName);
+            fieldNameBuilder.append(field.getName());
         }
 
         return fieldNameBuilder;
@@ -468,6 +490,53 @@ final class AnnotationUtils {
     }
 
     /**
+     * Get non-ignorable fields from provided class, namely fields that are neither static nor annotated with <code>@IgnoreField</code>.
+     *
+     * @param clazz The provided class.
+     * @param <T>   The class type.
+     * @return A list of fields that are not static AND not marked with <code>@IgnoreField</code>
+     */
+    public static <T> List<Field> getNonIgnorableFields(Class<T> clazz) {
+        Field[] declaredFields = clazz.getDeclaredFields();
+
+        List<Field> acceptedFields = new ArrayList<>();
+
+        for (Field field : declaredFields) {
+            if (!isIgnorableField(field)) {
+                acceptedFields.add(field);
+            }
+        }
+
+        return acceptedFields;
+    }
+
+    /**
+     * Get non-ignorable fields from provided object, namely fields that are neither static nor annotated with <code>@IgnoreField</code>. In addition, the field
+     * must also have its value (non null).
+     *
+     * @param object The provided object.
+     * @param <T>    The class type.
+     * @return A list of fields that are not static AND not marked with <code>@IgnoreField</code>, in addition to having value (non null).
+     */
+    public static <T> List<Field> getNonIgnorableAndNonNullFields(T object) {
+        if (isNull(object)) {
+            throw new IllegalArgumentException("Use null object is not allowed!");
+        }
+
+        Field[] declaredFields = object.getClass().getDeclaredFields();
+
+        List<Field> acceptedFields = new ArrayList<>();
+
+        for (Field field : declaredFields) {
+            if (!isIgnorableOrNullField(field, object)) {
+                acceptedFields.add(field);
+            }
+        }
+
+        return acceptedFields;
+    }
+
+    /**
      * Check if a field is annotated by various annotations that form 'invalid' combination. For example, <code>@IsNotNull</code> cannot be paired with
      * <code>@IsNull</code>, because it will not make sense to have a field that has both 'is not null' and 'is null' at the same time. If such combinations
      * are found, a <code>InvalidAnnotationCombinationException</code> will be thrown.
@@ -495,6 +564,14 @@ final class AnnotationUtils {
                 }
             }
         }
+    }
+
+    private static boolean isIgnorableField(Field field) {
+        return isStatic(field.getModifiers()) || field.isAnnotationPresent(IgnoreField.class);
+    }
+
+    private static <T> boolean isIgnorableOrNullField(Field field, T object) {
+        return isIgnorableField(field) || !isValuePresent(field, object);
     }
 
     private static final Set<Combination> INVALID_COMBINATIONS;

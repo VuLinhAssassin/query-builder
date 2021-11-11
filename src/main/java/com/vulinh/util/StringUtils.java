@@ -13,6 +13,7 @@ public final class StringUtils {
     public static final String CLOSE_PARENTHESIS = ")";
     public static final String COLON             = ":";
     public static final String DOT               = ".";
+    public static final String COMMA             = ",";
     public static final String SPACED_AND        = " and ";
     public static final String SPACED_OR         = " or ";
     public static final String FROM_VALUE        = "fromValue";
