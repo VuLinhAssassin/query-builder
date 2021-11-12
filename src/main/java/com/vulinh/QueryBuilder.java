@@ -1,5 +1,7 @@
 package com.vulinh;
 
+import com.vulinh.annotation.AsAlias;
+import com.vulinh.annotation.AsIfself;
 import com.vulinh.annotation.IgnoreField;
 import com.vulinh.annotation.UseCustomName;
 import com.vulinh.annotation.UseTableAlias;
@@ -84,7 +86,7 @@ public class QueryBuilder {
      * @param <T>   Entity type.
      * @return A string builder for single count query (for continuous string mutation) generated of provided class.
      */
-    public <T> StringBuilder buildCountQuery(Class<T> clazz, String alias) {
+    public <T> StringBuilder buildCountQuery(Class<T> clazz, CharSequence alias) {
         return buildSelectQuery(clazz, alias, true);
     }
 
@@ -107,7 +109,7 @@ public class QueryBuilder {
      * @param <T>   Entity type.
      * @return A string builder for single select query (for continuous string mutation) generated of provided class.
      */
-    public <T> StringBuilder buildSingleSelectQuery(Class<T> clazz, String alias) {
+    public <T> StringBuilder buildSingleSelectQuery(Class<T> clazz, CharSequence alias) {
         return buildSelectQuery(clazz, alias, false);
     }
 
@@ -119,10 +121,10 @@ public class QueryBuilder {
      * @param <T>       Object type.
      * @return A string builder for 'search' query (for continuous String mutation) generated of provided object.
      */
-    public <T> StringBuilder buildQuery(T object, String presetHql) {
+    public <T> StringBuilder buildQuery(T object, CharSequence presetHql) {
         StringBuilder query = new StringBuilder();
 
-        checkEmptyAndStartSpace(query, presetHql);
+        checkEmptyAndStartSpace(query, String.valueOf(presetHql));
 
         for (Field field : AnnotationUtils.getNonIgnorableAndNonNullFields(object)) {
             // Check single comparison annotation
@@ -147,12 +149,23 @@ public class QueryBuilder {
     /**
      * Create select query that consists of many related entities, useful for query that retrieves data from more than one entities.
      *
+     * @param clazz the provided DTO class.
+     * @param <T>   the DTO type.
+     * @return A string builder for DTO 'search' query (for continuous String mutation) generated of provided object.
+     */
+    public <T> StringBuilder buildMultiEntitiesSelectQuery(Class<T> clazz) {
+        return buildMultiEntitiesSelectQuery(clazz, null);
+    }
+
+    /**
+     * Create select query that consists of many related entities, useful for query that retrieves data from more than one entities.
+     *
      * @param clazz    the provided DTO class.
-     * @param trailing the follow-up CharSequence (can be anything related to String) after the select query, separated by a SPACE (" ") character.
+     * @param followUp the follow-up CharSequence (can be anything related to String) after the select query, separated by a SPACE (" ") character.
      * @param <T>      the DTO type.
      * @return A string builder for DTO 'search' query (for continuous String mutation) generated of provided object.
      */
-    public <T> StringBuilder buildMultiEntitiesSelectQuery(Class<T> clazz, CharSequence trailing) {
+    public <T> StringBuilder buildMultiEntitiesSelectQuery(Class<T> clazz, CharSequence followUp) {
         StringBuilder query = new StringBuilder();
 
         query.append("select new ").append(clazz.getCanonicalName());
@@ -171,14 +184,14 @@ public class QueryBuilder {
         query.delete(query.length() - 2, query.length())
              .append(CLOSE_PARENTHESIS);
 
-        if (isNotBlank(trailing)) {
-            query.append(SPACE).append(trailing);
+        if (isNotBlank(followUp)) {
+            query.append(SPACE).append(followUp);
         }
 
         return query;
     }
 
-    private <T> StringBuilder buildSelectQuery(Class<T> clazz, String alias, boolean isCountQuery) {
+    private <T> StringBuilder buildSelectQuery(Class<T> clazz, CharSequence alias, boolean isCountQuery) {
         StringBuilder query = new StringBuilder("select ");
 
         String[] classNameParts = clazz.getName().split("\\.");
@@ -187,7 +200,7 @@ public class QueryBuilder {
 
         String actualAlias;
         if (isNotBlank(alias)) {
-            actualAlias = alias;
+            actualAlias = String.valueOf(alias);
         } else {
             actualAlias = String.valueOf(Character.toLowerCase(classNameWithoutPackage.charAt(0)));
         }
@@ -382,6 +395,14 @@ public class QueryBuilder {
             fieldNameBuilder.append(field.getAnnotation(UseCustomName.class).value());
         } else {
             fieldNameBuilder.append(field.getName());
+        }
+
+        if (field.isAnnotationPresent(AsIfself.class)) {
+            fieldNameBuilder.append(" as ")
+                            .append(field.getName());
+        } else if (field.isAnnotationPresent(AsAlias.class)) {
+            fieldNameBuilder.append(" as ")
+                            .append(field.getAnnotation(AsAlias.class).value());
         }
 
         return fieldNameBuilder;
@@ -579,7 +600,7 @@ final class AnnotationUtils {
     static {
         INVALID_COMBINATIONS = new HashSet<>();
 
-        Class<?>[] comparisonAnnotations = new Class<?>[]{
+        addForbiddenCombinations(new Class<?>[]{
                 Between.class,
                 GreaterThan.class,
                 GreaterThanOrEqualTo.class,
@@ -591,11 +612,17 @@ final class AnnotationUtils {
                 Like.class,
                 InRange.class,
                 OutRange.class
-        };
+        });
 
-        for (Class<?> clazz : comparisonAnnotations) {
-            for (Class<?> innerClazz : comparisonAnnotations) {
-                // Same annotation cannot be used multiple times on a single field, as such, it doesn't matter
+        addForbiddenCombinations(new Class<?>[]{
+                AsAlias.class,
+                AsIfself.class
+        });
+    }
+
+    private static void addForbiddenCombinations(Class<?>[] annotations) {
+        for (Class<?> clazz : annotations) {
+            for (Class<?> innerClazz : annotations) {
                 if (!clazz.equals(innerClazz)) {
                     addSet(clazz, innerClazz);
                 }
