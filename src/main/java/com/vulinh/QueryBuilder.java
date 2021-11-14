@@ -1,7 +1,7 @@
 package com.vulinh;
 
 import com.vulinh.annotation.AsAlias;
-import com.vulinh.annotation.AsIfself;
+import com.vulinh.annotation.AsItself;
 import com.vulinh.annotation.IgnoreField;
 import com.vulinh.annotation.UseCustomName;
 import com.vulinh.annotation.UseTableAlias;
@@ -397,7 +397,7 @@ public class QueryBuilder {
             fieldNameBuilder.append(field.getName());
         }
 
-        if (field.isAnnotationPresent(AsIfself.class)) {
+        if (field.isAnnotationPresent(AsItself.class)) {
             fieldNameBuilder.append(" as ")
                             .append(field.getName());
         } else if (field.isAnnotationPresent(AsAlias.class)) {
@@ -616,7 +616,7 @@ final class AnnotationUtils {
 
         addForbiddenCombinations(new Class<?>[]{
                 AsAlias.class,
-                AsIfself.class
+                AsItself.class
         });
     }
 
