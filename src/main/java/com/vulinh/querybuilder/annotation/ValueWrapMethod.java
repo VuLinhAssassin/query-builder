@@ -1,6 +1,6 @@
-package com.vulinh.annotation;
+package com.vulinh.querybuilder.annotation;
 
-import com.vulinh.util.StringUtils;
+import com.vulinh.querybuilder.support.StringUtils;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -14,7 +14,7 @@ import java.lang.annotation.Target;
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.FIELD)
-public @interface UseWrapMethodValue {
+public @interface ValueWrapMethod {
 
     /**
      * Name for method that wraps the value part.

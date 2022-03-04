@@ -1,4 +1,4 @@
-package com.vulinh.util;
+package com.vulinh.querybuilder.support;
 
 /**
  * Some 'independent' string utility methods so this library can work without any third party StringUtils library.
@@ -7,17 +7,18 @@ package com.vulinh.util;
  */
 public final class StringUtils {
 
-    public static final String SPACE             = " ";
-    public static final String EMPTY             = "";
-    public static final String OPEN_PARENTHESIS  = "(";
+    public static final String SPACE = " ";
+    public static final String EMPTY = "";
+    public static final String OPEN_PARENTHESIS = "(";
     public static final String CLOSE_PARENTHESIS = ")";
-    public static final String COLON             = ":";
-    public static final String DOT               = ".";
-    public static final String COMMA             = ",";
-    public static final String SPACED_AND        = " and ";
-    public static final String SPACED_OR         = " or ";
-    public static final String FROM_VALUE        = "fromValue";
-    public static final String TO_VALUE          = "toValue";
+    public static final String COLON = ":";
+    public static final String DOT = ".";
+    public static final String COMMA = ",";
+    public static final String SPACED_AND = " and ";
+    public static final String SPACED_OR = " or ";
+    public static final String FROM_VALUE = "fromValue";
+    public static final String TO_VALUE = "toValue";
+    public static final String SPACED_AS = " as ";
 
     private StringUtils() {
         throw new UnsupportedOperationException("Cannot instantiate utility class!");

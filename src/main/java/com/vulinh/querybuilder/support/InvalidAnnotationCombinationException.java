@@ -1,4 +1,4 @@
-package com.vulinh.data;
+package com.vulinh.querybuilder.support;
 
 import java.lang.reflect.Field;
 

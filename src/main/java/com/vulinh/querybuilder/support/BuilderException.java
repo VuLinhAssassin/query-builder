@@ -1,4 +1,4 @@
-package com.vulinh.data;
+package com.vulinh.querybuilder.support;
 
 /**
  * Common runtime exception that can be thrown by this library.

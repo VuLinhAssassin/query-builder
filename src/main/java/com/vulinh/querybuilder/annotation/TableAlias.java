@@ -1,4 +1,4 @@
-package com.vulinh.annotation;
+package com.vulinh.querybuilder.annotation;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -6,18 +6,18 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Denote that this field should use provided custom name.
+ * Denote that this field must be matched with a table alias (most used in join queries, but in some Hibernate ones as well).
  *
  * @author Nguyen Vu Linh
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.FIELD)
-public @interface UseCustomName {
+public @interface TableAlias {
 
     /**
-     * The column name to use in place of field name.
+     * Value for table alias.
      *
-     * @return The column name to use in place of field name.
+     * @return Value for table alias.
      */
     String value();
 }

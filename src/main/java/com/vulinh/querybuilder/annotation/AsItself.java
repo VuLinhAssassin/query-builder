@@ -1,4 +1,4 @@
-package com.vulinh.annotation.comparison;
+package com.vulinh.querybuilder.annotation;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -6,12 +6,9 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Denote that the field in question must be compared using LESS THAN OR EQUAL TO operator.
- *
- * @author Nguyen Vu Linh
+ * Denote that this field has an alias named after the field name itself.
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.FIELD)
-public @interface LessThanOrEqualTo {
-
+public @interface AsItself {
 }
